@@ -143,24 +143,34 @@ def deployToEnvironment(namespace) {
         --region ${env.AWS_REGION} \
         --name ${env.EKS_CLUSTER}
 
+        kubectl create namespace ${namespace} \
+        --dry-run=client \
+        -o yaml | kubectl apply -f -
+
         kubectl apply \
         -f kube/ \
         -n ${namespace}
 
-        kubectl set image deployment/backend \
+        echo "Updating backend image..."
+
+        kubectl set image deployment/app1-backend \
         backend=${env.BACKEND_IMAGE}:${env.BUILD_NUMBER} \
         -n ${namespace}
 
-        kubectl set image deployment/proxy \
-        proxy=${env.PROXY_IMAGE}:${env.BUILD_NUMBER} \
+        echo "Updating frontend image..."
+
+        kubectl set image deployment/app-1 \
+        app-1-cont=${env.PROXY_IMAGE}:${env.BUILD_NUMBER} \
         -n ${namespace}
 
-        kubectl rollout status \
-        deployment/backend \
+        echo "Waiting for backend rollout..."
+
+        kubectl rollout status deployment/app1-backend \
         -n ${namespace}
 
-        kubectl rollout status \
-        deployment/proxy \
+        echo "Waiting for frontend rollout..."
+
+        kubectl rollout status deployment/app-1 \
         -n ${namespace}
     """
 }
