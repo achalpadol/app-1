@@ -15,7 +15,7 @@ pipeline {
         DOCKER_CREDENTIALS = "02_docker_hub_creds"
 
         AWS_REGION = "ap-south-1"
-        EKS_CLUSTER = "achal-eks"
+        EKS_CLUSTER = "cluster-1"
 
         DEV_NAMESPACE  = "app-dev"
         QA_NAMESPACE   = "app-qa"
