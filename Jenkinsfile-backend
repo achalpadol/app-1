@@ -289,7 +289,7 @@ def deployBackend(namespace, imageName, imageTag) {
 
         kubectl apply \
             -f kube/service-backend.yml \
-            -f kube/backend-deploy.yml \
+            -f kube/backend.yml \
             -n ${namespace}
 
 
