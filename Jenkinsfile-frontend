@@ -9,6 +9,7 @@ pipeline {
 
         // Docker build context
         BUILD_CONTEXT = './proxy'
+        BACKEND_DOCKERFILE = './proxy/Dockerfile'
 
         // Same Docker image repository for all environments
         FRONTEND_IMAGE_DEV  = 'achalpadol/app-1-proxy'
@@ -220,7 +221,9 @@ def deployFrontend(namespace, imageName, imageTag) {
         echo "Applying frontend Kubernetes manifest..."
 
         kubectl apply \
+            -f kube/service.yml \
             -f kube/frontend.yml \
+            -f kube/ingress.yml
             -n ${namespace}
 
 
