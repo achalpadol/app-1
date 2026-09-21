@@ -1,4 +1,4 @@
-
+```groovy
 def databaseImage
 
 pipeline {
@@ -8,7 +8,9 @@ pipeline {
     environment {
 
         // Docker build context
-        BUILD_CONTEXT = './database'
+        // Dockerfile-db is located in the repository root
+        BUILD_CONTEXT = '.'
+        DATABASE_DOCKERFILE = 'Dockerfile-db'
 
         // Same Docker image repository for all environments
         DATABASE_IMAGE_DEV  = 'achalpadol/app-1-db'
@@ -27,12 +29,12 @@ pipeline {
 
         // AWS / EKS
         AWS_REGION  = 'ap-south-1'
-        EKS_CLUSTER = 'cluster-1'
+        EKS_CLUSTER = 'achal-cluster-1'
 
         // Kubernetes namespaces
         DEV_NS  = 'app-dev'
         QA_NS   = 'app-qa'
-        UAT_NS   = 'app-uat'
+        UAT_NS  = 'app-uat'
         PROD_NS = 'app-prod'
     }
 
@@ -56,11 +58,9 @@ pipeline {
         stage('Checkout') {
 
             steps {
-
                 checkout scm
             }
         }
-
 
         stage('Validate Parameters') {
 
@@ -80,13 +80,10 @@ pipeline {
             }
         }
 
-
         stage('Build Database Image - DEV') {
 
             when {
-
                 expression {
-
                     params.Environment == 'dev'
                 }
             }
@@ -97,19 +94,16 @@ pipeline {
 
                     databaseImage = docker.build(
                         "${env.DATABASE_IMAGE_DEV}:${env.BUILD_NUMBER}",
-                        env.BUILD_CONTEXT
+                        "-f ${env.DATABASE_DOCKERFILE} ${env.BUILD_CONTEXT}"
                     )
                 }
             }
         }
 
-
         stage('Push Database Image - DEV') {
 
             when {
-
                 expression {
-
                     params.Environment == 'dev'
                 }
             }
@@ -131,7 +125,6 @@ pipeline {
             }
         }
 
-
         stage('Deploy Database') {
 
             steps {
@@ -141,7 +134,6 @@ pipeline {
                     def namespace
                     def imageName
                     def imageTag
-
 
                     switch (params.Environment) {
 
@@ -153,7 +145,6 @@ pipeline {
 
                             break
 
-
                         case 'qa':
 
                             namespace = env.QA_NS
@@ -162,7 +153,6 @@ pipeline {
 
                             break
 
-
                         case 'uat':
 
                             namespace = env.UAT_NS
@@ -170,7 +160,6 @@ pipeline {
                             imageTag = params.IMAGE_TAG.trim()
 
                             break
-
 
                         case 'prod':
 
@@ -181,7 +170,6 @@ pipeline {
                             break
                     }
 
-
                     // Manual approval for PROD
                     if (params.Environment == 'prod') {
 
@@ -191,8 +179,7 @@ pipeline {
                         )
                     }
 
-
-                    // Call reusable function
+                    // Call reusable deployment function
                     deployDatabase(
                         namespace,
                         imageName,
@@ -203,21 +190,17 @@ pipeline {
         }
     }
 
-
     post {
 
         always {
-
             cleanWs()
         }
 
         success {
-
             echo 'Database deployment completed successfully.'
         }
 
         failure {
-
             echo 'Database deployment failed.'
         }
     }
@@ -230,43 +213,53 @@ pipeline {
 def deployDatabase(namespace, imageName, imageTag) {
 
     sh """
+        set -e
 
+        echo "=========================================="
         echo "Connecting to EKS cluster..."
+        echo "=========================================="
 
         aws eks update-kubeconfig \
             --region ${env.AWS_REGION} \
             --name ${env.EKS_CLUSTER}
 
-
+        echo "=========================================="
         echo "Creating namespace if required..."
+        echo "=========================================="
 
         kubectl create namespace ${namespace} \
             --dry-run=client \
             -o yaml | kubectl apply -f -
 
-
+        echo "=========================================="
         echo "Applying database Kubernetes manifest..."
+        echo "=========================================="
 
         kubectl apply \
             -f kube/db-deploy.yml \
             -n ${namespace}
 
-
+        echo "=========================================="
         echo "Updating database Docker image..."
+        echo "=========================================="
 
         kubectl set image \
             deployment/app1-db \
             db=${imageName}:${imageTag} \
             -n ${namespace}
 
-
+        echo "=========================================="
         echo "Waiting for database rollout..."
+        echo "=========================================="
 
         kubectl rollout status \
             deployment/app1-db \
             -n ${namespace}
 
-
+        echo "=========================================="
         echo "Database deployment completed."
+        echo "Image: ${imageName}:${imageTag}"
+        echo "Namespace: ${namespace}"
+        echo "=========================================="
     """
 }
