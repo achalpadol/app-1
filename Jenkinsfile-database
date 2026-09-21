@@ -13,10 +13,10 @@ pipeline {
         DATABASE_DOCKERFILE = './db/Dockerfile'
 
         // Same Docker image repository for all environments
-        DATABASE_IMAGE_DEV  = 'achalpadol/app-1/db'
-        DATABASE_IMAGE_QA   = 'achalpadol/app-1/db'
-        DATABASE_IMAGE_UAT  = 'achalpadol/app-1/db'
-        DATABASE_IMAGE_PROD = 'achalpadol/app-1/db'
+        DATABASE_IMAGE_DEV  = 'achalpadol/app-1-db'
+        DATABASE_IMAGE_QA   = 'achalpadol/app-1-db'
+        DATABASE_IMAGE_UAT  = 'achalpadol/app-1-db'
+        DATABASE_IMAGE_PROD = 'achalpadol/app-1-db'
 
         // Docker Hub
         REGISTRY_URL = 'https://index.docker.io/v1/'
