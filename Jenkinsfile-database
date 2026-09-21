@@ -1,4 +1,4 @@
-```groovy
+
 def databaseImage
 
 pipeline {
@@ -270,4 +270,3 @@ def deployDatabase(namespace, imageName, imageTag) {
         echo "Database deployment completed."
     """
 }
-```
