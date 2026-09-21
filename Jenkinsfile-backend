@@ -8,6 +8,7 @@ pipeline {
 
         // Docker build context
         BUILD_CONTEXT = './backend'
+        BACKEND_DOCKERFILE = './backend/Dockerfile'
 
         // Docker Hub images
         BACKEND_IMAGE_DEV  = 'achalpadol/app-1-backend'
