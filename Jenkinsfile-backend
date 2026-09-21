@@ -1,0 +1,311 @@
+def backendImage
+
+pipeline {
+
+    agent any
+
+    environment {
+
+        // Docker build context
+        BUILD_CONTEXT = './backend'
+
+        // Docker Hub images
+        BACKEND_IMAGE_DEV  = 'achalpadol/app-1-backend'
+        BACKEND_IMAGE_QA   = 'achalpadol/app-1-backend'
+        BACKEND_IMAGE_UAT  = 'achalpadol/app-1-backend'
+        BACKEND_IMAGE_PROD = 'achalpadol/app-1-backend'
+
+        // Docker Registry
+        REGISTRY_URL = 'https://index.docker.io/v1/'
+
+        // Docker Hub credentials
+        DEV_DH_CREDENTIALS  = '02_docker_hub_creds'
+        QA_DH_CREDENTIALS   = '02_docker_hub_creds'
+        UAT_DH_CREDENTIALS  = '02_docker_hub_creds'
+        PROD_DH_CREDENTIALS = '02_docker_hub_creds'
+
+        // AWS / EKS
+        AWS_REGION  = 'ap-south-1'
+        EKS_CLUSTER = 'cluster-1'
+
+        // Kubernetes namespaces
+        DEV_NS  = 'app-dev'
+        QA_NS   = 'app-qa'
+        UAT_NS  = 'app-uat'
+        PROD_NS = 'app-prod'
+    }
+
+    parameters {
+        choice(
+            name: 'Environment',
+            choices: ['dev','qa','uat,'prod'],
+            description: 'Select deployment environment'
+        )
+       string( 
+            name: 'IMAGE_TAG', defaultValue: '', 
+            description: 'DEV image tag to promote to QA/UAT/PROD')
+    }
+
+    stages {
+
+        /*
+         * ==========================================
+         * CHECKOUT
+         * ==========================================
+         */
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        /*
+         * ==========================================
+         * BUILD IMAGE
+         *
+         * Image is built ONLY when DEV is selected.
+         * ==========================================
+         */
+
+        stage('Build Backend Image - DEV') {
+            when {
+                expression {
+                    params.Environment == 'dev'
+                }
+            }
+            steps {
+                script {
+                    echo "Building Backend Image for DEV"
+                    backendImage = docker.build(
+                        "${env.BACKEND_IMAGE_DEV}:${env.BUILD_NUMBER}",
+                        env.BUILD_CONTEXT
+                    )
+                }
+            }
+        }
+        /*
+         * ==========================================
+         * PUSH IMAGE
+         *
+         * Image is pushed ONLY from DEV.
+         * ==========================================
+         */
+        stage('Push Backend Image - DEV') {
+            when {
+                expression {
+                    params.Environment == 'dev'
+                }
+            }
+            steps {
+                script {
+                    docker.withRegistry(
+                        env.REGISTRY_URL,
+                        env.DEV_DH_CREDENTIALS
+                    ) {
+                        backendImage.push(
+                            env.BUILD_NUMBER
+                        )
+                    }
+                    echo "Backend image pushed:"
+                    echo "${env.BACKEND_IMAGE_DEV}:${env.BUILD_NUMBER}"
+                }
+            }
+        }
+        /*
+         * ==========================================
+         * DEPLOY DEV
+         * ==========================================
+         */
+        stage('Deploy Backend - DEV') {
+            when {
+                expression {
+                    params.Environment == 'dev'
+                }
+            }
+            steps {
+                script {
+                    deployBackend(
+                        env.DEV_NS,
+                        env.BACKEND_IMAGE_DEV,
+                        env.BUILD_NUMBER
+                    )
+                }
+            }
+        }
+        /*
+         * ==========================================
+         * DEPLOY QA
+         *
+         * IMPORTANT:
+         * No docker build here.
+         * No docker push here.
+         *
+         * It uses the existing DEV image.
+         * ==========================================
+         */
+        stage('Deploy Backend - QA') {
+            when {
+                expression {
+                    params.Environment == 'qa'
+                }
+            }
+            steps {
+                script {
+                    // Image created by DEV pipeline/build
+                    def imageTag = params.IMAGE_TAG ?: env.BUILD_NUMBER
+                    deployBackend(
+                        env.QA_NS,
+                        env.BACKEND_IMAGE_QA,
+                        imageTag
+                    )
+                }
+            }
+        }
+        /*
+         * ==========================================
+         * DEPLOY UAT
+         * ==========================================
+         */
+        stage('Deploy Backend - UAT') {
+            when {
+                expression {
+                    params.Environment == 'uat'
+                }
+            }
+            steps {
+                script {
+                    def imageTag = params.IMAGE_TAG ?: env.BUILD_NUMBER
+                    deployBackend(
+                        env.UAT_NS,
+                        env.BACKEND_IMAGE_UAT,
+                        imageTag
+                    )
+                }
+            }
+        }
+        /*
+         * ==========================================
+         * PRODUCTION APPROVAL
+         * ==========================================
+         */
+        stage('Production Approval') {
+            when {
+                expression {
+                    params.Environment == 'prod'
+                }
+            }
+            steps {
+                input(
+                    message: "Deploy Backend to Production?",
+                    ok: "Deploy to Production"
+                )
+            }
+        }
+        /*
+         * ==========================================
+         * DEPLOY PROD
+         * ==========================================
+         */
+
+        stage('Deploy Backend - PROD') {
+            when {
+                expression {
+                    params.Environment == 'prod'
+                }
+            }
+            steps {
+                script {
+                    def imageTag = params.IMAGE_TAG ?: env.BUILD_NUMBER
+                    deployBackend(
+                        env.PROD_NS,
+                        env.BACKEND_IMAGE_PROD,
+                        imageTag
+                    )
+                }
+            }
+        }
+    }
+    /*
+     * ==========================================
+     * POST
+     * ==========================================
+     */
+    post {
+        always {
+            echo "Cleaning workspace..."
+            cleanWs()
+        }
+        success {
+            echo "Backend pipeline completed successfully."
+        }
+        failure {
+            echo "Backend pipeline failed."
+        }
+    }
+}
+/*
+ * ==================================================
+ * REUSABLE FUNCTION
+ * ==================================================
+ *
+ * This function is used by:
+ *
+ * DEV
+ * QA
+ * UAT
+ * PROD
+ *
+ * Only namespace, image and tag change.
+ *
+ * ==================================================
+ */
+
+def deployBackend(namespace, imageName, imageTag) {
+
+    echo "=========================================="
+    echo "Deploying Backend"
+    echo "Namespace : ${namespace}"
+    echo "Image     : ${imageName}:${imageTag}"
+    echo "=========================================="
+
+    sh """
+
+        echo "Updating EKS kubeconfig..."
+
+        aws eks update-kubeconfig \
+            --region ${env.AWS_REGION} \
+            --name ${env.EKS_CLUSTER}
+
+
+        echo "Creating namespace if required..."
+
+        kubectl create namespace ${namespace} \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+
+
+        echo "Applying backend Kubernetes manifest..."
+
+        kubectl apply \
+            -f kube/backend-deploy.yml \
+            -n ${namespace}
+
+
+        echo "Updating backend image..."
+
+        kubectl set image deployment/app1-backend \
+            backend=${imageName}:${imageTag} \
+            -n ${namespace}
+
+
+        echo "Waiting for rollout..."
+
+        kubectl rollout status \
+            deployment/app1-backend \
+            -n ${namespace}
+
+
+        echo "Backend deployment completed."
+
+    """
+}
