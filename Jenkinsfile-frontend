@@ -223,7 +223,7 @@ def deployFrontend(namespace, imageName, imageTag) {
         kubectl apply \
             -f kube/service.yml \
             -f kube/frontend.yml \
-            -f kube/ingress.yml
+            -f kube/ingress.yml \
             -n ${namespace}
 
 
