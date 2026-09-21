@@ -10,7 +10,7 @@ pipeline {
         // Docker build context
         // Dockerfile-db is located in the repository root
         BUILD_CONTEXT = './db'
-        DATABASE_DOCKERFILE = 'Dockerfile'
+        DATABASE_DOCKERFILE = './db/Dockerfile'
 
         // Same Docker image repository for all environments
         DATABASE_IMAGE_DEV  = 'achalpadol/app-1/db'
