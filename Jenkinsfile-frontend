@@ -1,4 +1,4 @@
-```groovy
+
 def frontendImage
 
 pipeline {
@@ -242,4 +242,3 @@ def deployFrontend(namespace, imageName, imageTag) {
         echo "Frontend deployment completed."
     """
 }
-```
