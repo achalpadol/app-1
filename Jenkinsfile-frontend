@@ -27,7 +27,7 @@ pipeline {
 
         // AWS / EKS
         AWS_REGION  = 'ap-south-1'
-        EKS_CLUSTER = 'cluster-1'
+        EKS_CLUSTER = 'achal-cluster-1'
 
         // Kubernetes namespaces
         DEV_NS  = 'app-dev'
