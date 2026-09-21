@@ -1,4 +1,3 @@
-```groovy
 def backendImage
 
 pipeline {
