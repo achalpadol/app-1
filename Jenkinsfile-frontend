@@ -205,7 +205,8 @@ def deployFrontend(namespace, imageName, imageTag) {
     sh """
 
         echo "Connecting to EKS cluster..."
-
+        echo "EKS_CLUSTER = ${env.EKS_CLUSTER}"
+        echo "AWS_REGION = ${env.AWS_REGION}"
         aws eks update-kubeconfig \
             --region ${env.AWS_REGION} \
             --name ${env.EKS_CLUSTER}
